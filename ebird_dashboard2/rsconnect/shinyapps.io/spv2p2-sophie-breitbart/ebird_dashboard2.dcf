@@ -1,0 +1,13 @@
+name: ebird_dashboard2
+title: ebird_dashboard2
+username:
+account: spv2p2-sophie-breitbart
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5379110
+bundleId: 5423514
+url: https://spv2p2-sophie-breitbart.shinyapps.io/ebird_dashboard2/
+when: 1640982541.74088
+lastSyncTime: 1640982541.74088
+asMultiple: FALSE
+asStatic: FALSE
