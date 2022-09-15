@@ -12,12 +12,15 @@ library(DT)
 library(reactable)
 library(htmltools)
 library(backports)
+library(crosstalk)
+
 
 
 # import data----
-ebird <- read.csv("ebird.csv") %>%
+ebird <- read.csv("ebird_2022.csv") %>%
     janitor::clean_names() %>%
     dplyr::mutate(count = na_if(count, "X")) %>%
+    dplyr::mutate(count = as.numeric(count)) %>%
     dplyr::mutate(year = substr(date, 1, 4)) %>%
     as.data.frame()
 
@@ -26,6 +29,7 @@ ebird_codes <- read.csv("spcs_code.csv") %>%
     rename("taxonomic_order" = 1) %>%
     as.data.frame()
 
+# create data for app-----
 # join families with ebird data
 ebird %<>%
     left_join(ebird_codes, by = "taxonomic_order")
@@ -34,7 +38,7 @@ ebird %<>%
 # find # of birds seen per month
 ebird_monthly <- ebird %>%
     tidyr::drop_na(date) %>%
-    dplyr::mutate(count_est = replace_na(count, 1)) %>%
+    dplyr::mutate(count_est = replace_na(as.numeric(count), 1)) %>%
     dplyr::mutate(date = as.Date(date)) %>%
     dplyr::mutate(count_est = as.numeric(count_est)) %>%
     dplyr::group_by(date) %>%
@@ -141,48 +145,76 @@ monthly_birds <- ebird %>%
 
 # best comments
 ebird_comments <- ebird %>%
+    dplyr::select(c(2,3,9,12,21)) %>%
     dplyr::filter(observation_details != "") %>%
-    dplyr::slice(c(9, 20, 21, 22, 34, 40, 48, 58, 59, 66, 68, 78, 81, 84, 86, 105, 108, 110, 113, 115, 117, 122))
-
-
-leaflet(ebird_comments) %>% 
-    # addTiles(options = providerTileOptions(opacity = 0.55)) %>%
-    addProviderTiles(providers$CartoDB.Positron) %>%
-    
-    #                  options = providerTileOptions(opacity = 0.55)) %>%
-    # fitBounds(-79.6,44,-79.2,43.5) %>% 
-    addCircles(lng = ~longitude,
-               lat = ~latitude,
-               radius = 20,
-               popup = paste0("Scientific name: ",
-                              # italicize
-                              "<i>",
-                              ebird_comments$scientific_name.x,
-                              "</i>",
-                              ".",
-                              "<br>", # line break
-                              "Common name: ",
-                              ebird_comments$common_name, 
-                              ".",
-                              "<br>", # line break
-                              "Location: ",
-                              ebird_comments$location,
-                              ".",
-                              "<br>", # line break
-                              "Date: ",
-                              ebird_comments$date,
-                              ".",
-                              "<br>", # line break
-                              "Comment: ",
-                              ebird_comments$observation_details,
-                              "."),
-               fill = T,
-               fillOpacity = 0.8
-    ) 
+    dplyr::arrange(-desc(date)) %>%
+    dplyr::mutate(Rating = case_when(
+        row_number() %in% c(39, 43, 93, 140) ~1,
+        row_number() %in% c(7, 20, 37, 110, 111) ~2,
+        row_number() %in% c(9, 40, 45, 104) ~3,
+        row_number() %in% c(17, 41, 106, 149) ~4,
+        row_number() %in% c(23, 78, 145) ~5,
+        row_number() %in% c(2,10,11) ~6,
+        row_number() %in% c(22, 55, 75, 146) ~7,
+        row_number() %in% c(42, 50, 68, 81, 91, 122) ~8,
+        row_number() %in% c(33, 59, 77, 90, 112, 152) ~9,
+        row_number() %in% c(63, 71, 74, 115, 123, 148) ~10
+    )) %>%
+    dplyr::rename("Common Name" = 1,
+                  "Scientific Name" = 2,
+                  "Location" = 3,
+                  "Date" = 4,
+                  "Comment" = 5) %>%
+    dplyr::filter(is.na(Rating) == FALSE) %>%
+    dplyr::select(c(1,5,6,3,4,2))
 
 
 
+# leaflet(ebird_comments) %>% 
+#     # addTiles(options = providerTileOptions(opacity = 0.55)) %>%
+#     addProviderTiles(providers$CartoDB.Positron) %>%
+#     
+#     #                  options = providerTileOptions(opacity = 0.55)) %>%
+#     # fitBounds(-79.6,44,-79.2,43.5) %>% 
+#     addCircles(lng = ~longitude,
+#                lat = ~latitude,
+#                radius = 80,
+#                popup = paste0("Scientific name: ",
+#                               # italicize
+#                               "<i>",
+#                               ebird_comments$scientific_name.x,
+#                               "</i>",
+#                               ".",
+#                               "<br>", # line break
+#                               "Common name: ",
+#                               ebird_comments$common_name, 
+#                               ".",
+#                               "<br>", # line break
+#                               "Location: ",
+#                               ebird_comments$location,
+#                               ".",
+#                               "<br>", # line break
+#                               "Date: ",
+#                               ebird_comments$date,
+#                               ".",
+#                               "<br>", # line break
+#                               "Comment: ",
+#                               "<b>",
+#                               ebird_comments$observation_details,
+#                               ".",
+#                               "</b>"),
+#                fill = T,
+#                fillOpacity = 0.5,
+#                color = ~pal3(Rating)
+#     )         %>%
+#     addLegend("bottomleft",
+#               pal = pal3,
+#               values = ebird_comments$Rating,
+#               opacity = 0.8)
 
+
+
+# make color paletttes-----
 
 # make color palette for US sightings map
 pal <- colorFactor(palette = 'Dark2',
@@ -193,56 +225,63 @@ pal2 <- colorFactor(palette = 'Set1',
                    domain = ebird$family)
 
 
-# loadfonts(device = "win")
 
+# ui-----
 
-
+species <- ebird %>%
+    group_by(common_name) %>%
+    dplyr::summarise(n())
 
 
 ui <- fluidPage(
-    titlePanel("Mitch's Bird Sightings"),  # Add a title panel
-    sidebarLayout(  # Make the layout a sidebarLayout
+    titlePanel(
+        h1("Mitch's Bird Sightings!", align = "center")),
+    h4("The goal of this Shiny dashboard is to explore Mitch's birding data. Which bird species has he seen? Where? How often? All data was downloaded from eBird and was published here with Mitch's permission."),
+    
+    h5(tags$a(href= "https://sbreitbart.github.io/", "Sophie Breitbart, 2022",
+              target="_blank")),
+    
+    sidebarLayout(  # Make the layout a 
+        
         sidebarPanel(
-            # selectInput(inputId = "year",
-            #             label = h3("Select Year"),
-            #             choices = c(
-            #                 "2016" = 2016,
-            #                 "2017" = 2017,
-            #                 "2018" = 2018,
-            #                 "2019" = 2019,
-            #                 "2020" = 2020,
-            #                 "2021" = 2021)
-            # ),
-            shinyWidgets::pickerInput(inputId = "family",
-                         label = h3("Select Family (US Map)"),
-                         choices = as.list(
-                             sort(na.exclude(unique(ebird$family)))),
-                        selected = "Accipitridae (Hawks, Eagles, and Kites)",
-                        options = list(`actions-box` = TRUE,
-                                       `selected-text-format` = "count > 2"),
-                        multiple = TRUE)
-        ),  # Inside the sidebarLayout, add a sidebarPanel
+
+            img(src = "mitch.png", width="70%", height="70%",
+                alt="Mitch birding at Rouge Park, Ontario", class="center")
+        ), 
        
          mainPanel( tabsetPanel(
             type = "tabs",
             
-            tabPanel("US Sightings",
-                     fluidPage(leafletOutput("US_sightings"),
-                               DT::dataTableOutput('US_table'))
-                     ),
+            tabPanel("North American Sightings",
+                     h4("Click the map waypoints!"),
+                     fluidPage(shinyWidgets::pickerInput(inputId = "family",
+                                               label = h3("Select Family"),
+                                               choices = as.list(
+                                                   sort(na.exclude(unique(ebird$family)))),
+                                               selected = as.list(
+                                                   sort(na.exclude(unique(ebird$family)))),# "Accipitridae (Hawks, Eagles, and Kites)",
+                                               options = list(`actions-box` = TRUE,
+                                                              `selected-text-format` = "count > 2"),
+                                               multiple = TRUE),
+                               leafletOutput("US_sightings"),
+                               DT::dataTableOutput('US_table'))),
             
             tabPanel("New Zealand Sightings",
+                     h4("Click the map waypoints!"),
                      fluidPage(leafletOutput("NZ_sightings"),
                                DT::dataTableOutput('NZ_table'))
                      ),
             
             tabPanel("Sightings Over Time",
+                     h4("Mitch's cumulative totals over time"),
                      plotOutput("seasons_plot")),
             
             tabPanel("Most Popular Birds",
+                     h4("Mitch is most likely to see these species on his outings."),
                      plotOutput("common20")),
             
             tabPanel("Rarest Birds",
+                     h4("Mitch has only recorded one instance of each of these species."),
                      fluidPage(
                      reactableOutput("rarest_birds"))),
             
@@ -250,12 +289,18 @@ ui <- fluidPage(
                      plotOutput("monthly_birds")),
             
             tabPanel("Sightings with the Best Comments",
-                     plotOutput('bird_comments'))
+                     
+                     sliderInput(inputId = "slider1",
+                                 label = h3("Select Rating (Comments Tab)"),
+                                 min = 1, 
+                                 max = 10,
+                                 value = 5),
+                     reactableOutput('bird_comments'))
                         ) 
     ))
 )
 
-
+# server-----
 
 server <- function(input, output, session) {
     
@@ -410,7 +455,7 @@ server <- function(input, output, session) {
             geom_point(aes(color = reorder(common_name, -count)),
                        size = 5) +
             theme_light() +
-            ylim(0, 210) +
+            ylim(0, 300) +
             theme(legend.position = "none",
                   axis.text.x = element_text(angle = 35,
                                              vjust = 1.1,
@@ -425,9 +470,10 @@ server <- function(input, output, session) {
                   plot.title = element_text(size=16,
                                             hjust = 0.5)) +
             labs(x = "Species",
-                 y = "Times Seen (of 205 outings)",
+                 y = "Times Seen (of >250 outings)",
                  title = "Mitch's 20 Most Spotted Birds",
-                 subtitle = "When Mitch goes birding, he is most likely to see these species.") +
+                 # subtitle = "When Mitch goes birding, he is most likely to see these species."
+                 ) +
             geom_text(aes(label = count),
                       position = position_dodge(width=0.9),
                       vjust = -0.8)
@@ -455,6 +501,27 @@ server <- function(input, output, session) {
     
     # best comments
     
+    ebird_comm <- reactive({
+        ebird_comments %>%
+            filter(Rating == input$slider1)
+    })
+    
+    
+    output$bird_comments <- renderReactable({
+         reactable(ebird_comm(),
+                   defaultColDef = colDef(
+                       header = function(value) gsub(".", " ", value, fixed = TRUE),
+                       cell = function(value) format(value, nsmall = 1),
+                       align = "center",
+                       minWidth = 70,
+                       headerStyle = list(background = "#f7f7f8")
+                   ),
+                   columns = list(
+                       Comment = colDef(minWidth = 190)  # overrides the default
+                   ),
+                   bordered = TRUE,
+                   highlight = TRUE)
+    })
        
 }
 
