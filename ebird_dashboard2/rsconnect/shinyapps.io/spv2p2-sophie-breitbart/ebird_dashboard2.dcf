@@ -5,9 +5,9 @@ account: spv2p2-sophie-breitbart
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5379110
-bundleId: 6305164
+bundleId: 6310432
 url: https://spv2p2-sophie-breitbart.shinyapps.io/ebird_dashboard2/
-when: 1663248982.91732
-lastSyncTime: 1663248982.91732
+when: 1663361244.88101
+lastSyncTime: 1663361244.88101
 asMultiple: FALSE
 asStatic: FALSE

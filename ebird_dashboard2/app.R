@@ -1,3 +1,7 @@
+# NOTE SEPT 2022:
+# I can't figure out why North America map won't show California birds when all families are selected. I did see that at least one family- the Oystercatchers- were ONLY seen in New Zealand, and so deselecting that family zooms out the map from New England to the whole US (the goal). But even then, not all California sightings are plotted. Cannot figure out why. They are plotted when families are selected individually, though.
+
+
 # load libraries-----
 library(shiny)
 library(shinydashboard)
@@ -234,8 +238,7 @@ species <- ebird %>%
 
 
 ui <- fluidPage(
-    titlePanel(
-        h1("Mitch's Bird Sightings!", align = "center")),
+    titlePanel("Mitch's Bird Sightings!"),
     h4("The goal of this Shiny dashboard is to explore Mitch's birding data. Which bird species has he seen? Where? How often? All data was downloaded from eBird and was published here with Mitch's permission."),
     
     h5(tags$a(href= "https://sbreitbart.github.io/", "Sophie Breitbart, 2022",
@@ -258,8 +261,7 @@ ui <- fluidPage(
                                                label = h3("Select Family"),
                                                choices = as.list(
                                                    sort(na.exclude(unique(ebird$family)))),
-                                               selected = as.list(
-                                                   sort(na.exclude(unique(ebird$family)))),# "Accipitridae (Hawks, Eagles, and Kites)",
+                                               selected = "Passerellidae (New World Sparrows)",
                                                options = list(`actions-box` = TRUE,
                                                               `selected-text-format` = "count > 2"),
                                                multiple = TRUE),
@@ -365,7 +367,7 @@ server <- function(input, output, session) {
     
     
     
-    # 2nd MAP: ALL NEW ZEALAND SIGHTINGS
+    # 2nd MAP: ALL NEW ZEALAND SIGHTINGS-----
     ebird_NZ <- ebird %>%
         filter(state_province == "NZ-OTA") # %>%
             # filter(family == input$family)
@@ -418,7 +420,7 @@ server <- function(input, output, session) {
         #               opacity = 0.8)
     ) 
     
-    # BARPLOT
+    # BARPLOT-----
     output$seasons_plot <-renderPlot(
         ggplot(ebird_monthly %>%
                                filter(total > 12),
@@ -436,7 +438,7 @@ server <- function(input, output, session) {
         scale_x_date(date_breaks = "3 months" , date_labels = "%b %Y")
     )
     
-    # LOLLIPOP GRAPH: MOST COMMONLY-SEEN BIRDS
+    # LOLLIPOP GRAPH: MOST COMMONLY-SEEN BIRDS-----
     output$common20 <- renderPlot(
         ggplot(ebird_top20,
                aes(
@@ -494,12 +496,12 @@ server <- function(input, output, session) {
                     )
         })
  
-    # birds seen per month
+    # birds seen per month-----
     output$monthly_birds <- renderPlot(
         monthly_birds)
     
     
-    # best comments
+    # best comments-----
     
     ebird_comm <- reactive({
         ebird_comments %>%
@@ -529,5 +531,5 @@ server <- function(input, output, session) {
 
 
 
-
+# the app-----
 shinyApp(ui, server)
